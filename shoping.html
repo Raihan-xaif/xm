@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple Online Shop — নমুনা</title>
+  <style>
+    :root{--primary:#0ea5a4;--accent:#f97316}
+    body{font-family:Inter, system-ui, Arial, sans-serif;margin:0;background:#f5f7fb;color:#0f172a}
+    .container{max-width:1100px;margin:24px auto;padding:16px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    header h1{margin:0;font-size:20px}
+    .search{flex:1;margin:0 16px}
+    .search input{width:100%;padding:8px 12px;border-radius:8px;border:1px solid #d1d5db}
+    main{display:grid;grid-template-columns:1fr 320px;gap:18px;margin-top:18px}
+
+    /* products */
+    .products{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+    .card{background:#fff;border-radius:10px;padding:12px;box-shadow:0 6px 18px rgba(2,6,23,0.06);display:flex;flex-direction:column}
+    .card img{width:100%;height:140px;object-fit:cover;border-radius:8px}
+    .card h3{margin:10px 0 6px;font-size:15px}
+    .card .price{font-weight:700;color:var(--primary)}
+    .card button{margin-top:auto;padding:8px;border:0;border-radius:8px;background:var(--primary);color:#fff;cursor:pointer}
+
+    /* cart */
+    .cart{background:#fff;padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(2,6,23,0.06)}
+    .cart h2{margin:0 0 10px}
+    .cart-list{max-height:360px;overflow:auto;margin-bottom:10px}
+    .cart-item{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #eef2f7}
+    .cart-item img{width:52px;height:52px;object-fit:cover;border-radius:6px}
+    .qty{display:flex;gap:6px;align-items:center}
+    .qty button{padding:4px 8px;border:1px solid #e2e8f0;background:#fff;border-radius:6px;cursor:pointer}
+    .checkout{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+    .checkout button{padding:10px 12px;background:var(--accent);color:#fff;border:0;border-radius:8px;cursor:pointer}
+
+    footer{margin-top:18px;text-align:center;color:#64748b;font-size:13px}
+
+    @media(max-width:880px){main{grid-template-columns:1fr} .cart{order:2}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>নমুনা অনলাইন শপ</h1>
+      <div class="search"><input id="search" placeholder="প্রোডাক্ট খুঁজুন..." /></div>
+      <div id="cart-count">🛒 <span id="count">0</span></div>
+    </header>
+
+    <main>
+      <section>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h2>প্রোডাক্টসমূহ</h2>
+          <select id="sort">
+            <option value="default">সার্ট: ডিফল্ট</option>
+            <option value="price-asc">মূল্য কম → বেশি</option>
+            <option value="price-desc">মূল্য বেশি → কম</option>
+          </select>
+        </div>
+
+        <div id="products" class="products"></div>
+      </section>
+
+      <aside class="cart">
+        <h2>কার্ট</h2>
+        <div class="cart-list" id="cart-list"></div>
+        <div class="checkout">
+          <div>
+            <div>টোটাল: ৳ <span id="total">0.00</span></div>
+            <div style="font-size:12px;color:#64748b">আইটেম: <span id="items">0</span></div>
+          </div>
+          <div>
+            <button id="clear">সব মুছুন</button>
+            <button id="checkout">চেকআউট</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <footer>এই টেমপ্লেটটি শিক্ষার উদ্দেশ্যে। ব্রো️জারে খুলে ব্যবহার করুন।</footer>
+  </div>
+
+  <script>
+    // নমুনা প্রোডাক্ট ডেটা
+    const productsData = [
+      {id:1,name:'কটন টি শার্ট',price:550.00,img:'https://picsum.photos/seed/p1/400/300'},
+      {id:2,name:'জিন্স প্যান্ট',price:1200.00,img:'https://picsum.photos/seed/p2/400/300'},
+      {id:3,name:'চিনি কেক',price:300.00,img:'https://picsum.photos/seed/p3/400/300'},
+      {id:4,name:'হেডফোন',price:2200.00,img:'https://picsum.photos/seed/p4/400/300'},
+      {id:5,name:'চশমা',price:750.00,img:'https://picsum.photos/seed/p5/400/300'},
+      {id:6,name:'ব্যাগ',price:980.00,img:'https://picsum.photos/seed/p6/400/300'}
+    ];
+
+    // লোকাল স্টোরেজ কার্ট
+    const CART_KEY = 'sample_shop_cart_v1';
+    let cart = JSON.parse(localStorage.getItem(CART_KEY) || '{}');
+
+    // DOM refs
+    const productsEl = document.getElementById('products');
+    const cartListEl = document.getElementById('cart-list');
+    const totalEl = document.getElementById('total');
+    const itemsEl = document.getElementById('items');
+    const countEl = document.getElementById('count');
+    const searchEl = document.getElementById('search');
+    const sortEl = document.getElementById('sort');
+
+    function saveCart(){
+      localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    }
+
+    function renderProducts(list){
+      productsEl.innerHTML = '';
+      list.forEach(p => {
+        const card = document.createElement('div'); card.className='card';
+        card.innerHTML = `
+          <img src="${p.img}" alt="${p.name}" />
+          <h3>${p.name}</h3>
+          <div class="price">৳ ${p.price.toFixed(2)}</div>
+          <button data-id="${p.id}">কার্টে যোগ করুন</button>
+        `;
+        productsEl.appendChild(card);
+      });
+    }
+
+    function renderCart(){
+      cartListEl.innerHTML='';
+      const ids = Object.keys(cart);
+      let total=0, items=0;
+      ids.forEach(id => {
+        const item = cart[id];
+        total += item.price * item.qty;
+        items += item.qty;
+        const div = document.createElement('div'); div.className='cart-item';
+        div.innerHTML = `
+          <img src="${item.img}" />
+          <div style="flex:1">
+            <div style="font-weight:600">${item.name}</div>
+            <div style="font-size:13px;color:#64748b">৳ ${item.price.toFixed(2)}</div>
+          </div>
+          <div class="qty">
+            <button data-action="dec" data-id="${id}">-</button>
+            <div>${item.qty}</div>
+            <button data-action="inc" data-id="${id}">+</button>
+            <button data-action="rm" data-id="${id}" style="margin-left:8px">✕</button>
+          </div>
+        `;
+        cartListEl.appendChild(div);
+      });
+      totalEl.innerText = total.toFixed(2);
+      itemsEl.innerText = items;
+      countEl.innerText = items;
+      saveCart();
+    }
+
+    // add product
+    function addToCart(p){
+      if(cart[p.id]) cart[p.id].qty += 1; else cart[p.id] = { ...p, qty:1 };
+      renderCart();
+    }
+
+    // events
+    productsEl.addEventListener('click', e => {
+      const btn = e.target.closest('button'); if(!btn) return;
+      const id = Number(btn.dataset.id);
+      const p = productsData.find(x=>x.id===id);
+      if(p) addToCart(p);
+    });
+
+    cartListEl.addEventListener('click', e => {
+      const btn = e.target.closest('button'); if(!btn) return;
+      const id = btn.dataset.id;
+      const action = btn.dataset.action;
+      if(action === 'inc') { cart[id].qty +=1; }
+      else if(action === 'dec') { cart[id].qty -=1; if(cart[id].qty<=0) delete cart[id]; }
+      else if(action === 'rm') { delete cart[id]; }
+      renderCart();
+    });
+
+    document.getElementById('clear').addEventListener('click', () => { cart = {}; renderCart(); });
+    document.getElementById('checkout').addEventListener('click', () => {
+      if(Object.keys(cart).length===0) return alert('কার্ট খালি');
+      // এখানে আপনি রিয়েল পেমেন্ট/অর্ডার লজিক যোগ করবেন
+      alert('ধন্যবাদ! (টেমপ্লেট — সিমুলেটেড চেকআউট)');
+      cart = {}; renderCart();
+    });
+
+    // search & sort
+    searchEl.addEventListener('input', () => applyFilters());
+    sortEl.addEventListener('change', () => applyFilters());
+
+    function applyFilters(){
+      const q = searchEl.value.trim().toLowerCase();
+      let list = productsData.filter(p => p.name.toLowerCase().includes(q));
+      const sort = sortEl.value;
+      if(sort==='price-asc') list.sort((a,b)=>a.price-b.price);
+      if(sort==='price-desc') list.sort((a,b)=>b.price-a.price);
+      renderProducts(list);
+    }
+
+    // init
+    applyFilters();
+    renderCart();
+  </script>
+</body>
+</html>
